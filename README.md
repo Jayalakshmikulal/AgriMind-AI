@@ -1,50 +1,89 @@
-# AgriMind AI
+` # 🌱 AgriMind AI
 
-AgriMind AI is a local demonstration prototype for crop image screening and environmental readings. The React/Vite app is the primary interface. A Streamlit interface is also kept in `frontend/app.py`.
+### AI-Powered Crop Intelligence and Precision Spraying Recommendation System
 
-## Run locally
+AgriMind AI is an AI-powered agricultural intelligence platform designed to help farmers make better crop-management decisions using artificial intelligence, image analysis, and sensor-based insights.
 
-For a fresh Python setup, run these commands once from the project root:
+## 🚀 Key Features
 
-```powershell
+- **AI Disease Detection:** Upload a crop image to identify potential plant diseases.
+- **Crop Intelligence:** View crop-related insights using sensor data.
+- **AI Advisory:** Receive recommendations based on crop observations.
+- **Precision Spraying:** Explore targeted spraying recommendations.
+- **Sensor Records:** View agricultural sensor information.
+- **Multilingual Support:** Interface available in English, Kannada, Hindi, Malayalam, Tamil, and Telugu.
+
+## 🛠️ Technologies Used
+
+- Python
+- FastAPI
+- React
+- TypeScript
+- Vite
+- PyTorch
+- Hugging Face Transformers
+- HTML and CSS
+
+## 📁 Project Structure
+
+```text
+AgriMind-AI/
+├── ai_models/
+├── backend/
+├── frontend-react/
+├── utils/
+├── test_images/
+├── venv/
+└── README.md
+```
+
+## ⚙️ How to Run
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Jayalakshmikulal/AgriMind-AI.git
+cd AgriMind-AI
+```
+
+### 2. Start the backend
+
+```bash
 python -m venv venv
-venv\Scripts\python.exe -m pip install -r requirements.txt
+venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Open a PowerShell terminal at the project root and start the API:
+Backend API: http://127.0.0.1:8000
 
-```powershell
-venv\Scripts\python.exe -m uvicorn backend.main:app --reload
-```
+API documentation: http://127.0.0.1:8000/docs
 
-Open a second terminal in `frontend-react` and start the web app:
+### 3. Start the frontend
 
-```powershell
+Open another terminal:
+
+```bash
+cd frontend-react
 npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. The API listens at `http://127.0.0.1:8000` by default. Set `VITE_API_URL` when the API runs at another address. Set `AGRIMIND_ALLOWED_ORIGINS` to a comma-separated list of permitted browser origins when deploying the React app.
+Frontend: http://localhost:5173
 
-To run the secondary Streamlit interface instead, start the API as above and run `venv\Scripts\python.exe -m streamlit run frontend/app.py` in another terminal.
+## 🎯 Project Goal
 
-For a fresh Python environment, install the packages listed in `requirements.txt`. The disease model downloads from Hugging Face the first time it is used; that first prediction needs an internet connection. The model then uses the local Hugging Face cache when available.
+Our goal is to build an intelligent agricultural support system that combines AI-based crop analysis and sensor-driven insights to support smarter farming and precision agriculture.
 
-## Current prototype limits
+## 👩‍💻 Team
 
-- Sensor values are generated randomly. They are **simulated**, not hardware readings.
-- Sensor history is stored in `database/agrimind.db` on this machine. It is a local single-user demo store, not a hosted or multi-user database.
-- Disease screening uses a fixed 38-class PlantVillage model and accepts only the 14 crops listed in the crop selector. It is not validated for all Indian crop varieties or field conditions; confirm results with an agricultural expert.
-- The spraying page creates inspection-priority information from the image result. It does not locate a real field zone or control a drone/sprayer.
-- GPS field mapping, ESP32/Arduino ingestion, MQTT, and drone image/GPS integration are not implemented.
+Developed as a hackathon project.
 
-## API routes
+## 📌 Note
 
-- `GET /health` — API status.
-- `POST /predict-disease` — image screening; multipart fields `file` and supported `crop`.
-- `GET /sensor-data` — new simulated reading.
-- `GET /sensor-records?limit=100` — stored readings, newest first.
-- `POST /sensor-readings` — validated telemetry payload shape for future devices, including optional GPS coordinates. It is an integration scaffold only; no sensor or drone is connected. Add device authentication before exposing this route beyond a trusted local demo.
-- `GET /crop-intelligence` — simulated reading and threshold observations.
-- `GET /ai-advisory` — simulated reading and rule-based suggestions.
-- `POST /precision-spraying` — inspection-zone demonstration based on a screening result.
+AI disease predictions are advisory results and should be verified before taking agricultural treatment decisions.
+
+---
+
+**AgriMind AI | Smarter Farming Through Artificial Intelligence 🌱**
+`
