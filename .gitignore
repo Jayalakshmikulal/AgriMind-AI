@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+frontend-react/node_modules/
+frontend-react/dist/
+database/*.db
+.env
+.env.*
+!.env.example
