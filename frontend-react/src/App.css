@@ -211,3 +211,66 @@ button { cursor: pointer; }
   .record-row span:last-child { display: none; }
   .app-footer { padding: 15px; }
 }
+/* Add these styles to the END of your existing App.css. */
+.whole-plant-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.organ-upload-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+  padding: 15px;
+  border: 1px dashed rgba(86, 130, 91, 0.38);
+  border-radius: 15px;
+  background: rgba(100, 150, 110, 0.045);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+.organ-upload-card:hover {
+  border-color: rgba(70, 130, 80, .8);
+  background: rgba(100, 150, 110, .09);
+  transform: translateY(-2px);
+}
+.organ-upload-card > strong { font-size: 15px; }
+.organ-upload-card > small { color: var(--muted, #788579); font-size: 11px; line-height: 1.45; }
+.organ-upload-placeholder {
+  display: grid;
+  min-height: 105px;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(100, 150, 110, .07);
+  color: var(--muted, #788579);
+  font-size: 13px;
+}
+.organ-image-preview {
+  width: 100%;
+  height: 125px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.whole-plant-report {
+  margin-top: 20px;
+  padding: 17px;
+  border: 1px solid rgba(100, 150, 110, .2);
+  border-radius: 14px;
+  background: rgba(100, 150, 110, .05);
+}
+.whole-plant-report h3 { margin: 0 0 12px; }
+.whole-plant-report-row {
+  display: grid;
+  grid-template-columns: 75px minmax(0, 1fr);
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(100, 150, 110, .16);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.whole-plant-report-row:last-of-type { border-bottom: 0; }
+@media (max-width: 620px) {
+  .whole-plant-upload-grid { grid-template-columns: 1fr; }
+  .whole-plant-report-row { grid-template-columns: 1fr; gap: 3px; }
+}

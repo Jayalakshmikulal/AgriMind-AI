@@ -86,4 +86,3 @@ AI disease predictions are advisory results and should be verified before taking
 ---
 
 **AgriMind AI | Smarter Farming Through Artificial Intelligence 🌱**
-`
