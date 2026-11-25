@@ -1,0 +1,41 @@
+﻿1. Apple -> ixrbhii/apple-disease-convnext
+2. Apricot -> ixrbhii/apricot-disease-convnext
+3. Banana -> ixrbhii/banana-disease-convnext
+4. Betel -> ixrbhii/betel-disease-convnext
+5. Bitter Gourd -> ixrbhii/bitter-gourd-disease-convnext
+6. Black Pepper -> ixrbhii/black-pepper-disease-convnext
+7. Bottle Gourd -> ixrbhii/bottle-gourd-disease-convnext
+8. Brinjal -> ixrbhii/brinjal-disease-convnext
+9. Cashew -> ixrbhii/cashew-disease-convnext
+10. Cassava -> ixrbhii/cassava-disease-convnext
+11. Cherry -> ixrbhii/cherry-disease-convnext
+12. Chrysanthemum -> ixrbhii/chrysanthemum-disease-convnext
+13. Orange -> ixrbhii/citrus-disease-convnext
+14. Coconut -> ixrbhii/coconut-disease-convnext
+15. Coffee -> ixrbhii/coffee-disease-convnext
+16. Cucumber -> ixrbhii/cucumber-disease-convnext
+17. Cucurbit -> ixrbhii/cucurbit-disease-convnext
+18. Custard Apple -> ixrbhii/custard-apple-disease-convnext
+19. Fig -> ixrbhii/fig-disease-convnext
+20. Grape -> ixrbhii/grape-disease-convnext
+21. Guava -> ixrbhii/guava-disease-convnext
+22. Loquat -> ixrbhii/loquat-disease-convnext
+23. Corn -> ixrbhii/maize-disease-convnext
+24. Mango -> ixrbhii/mango-disease-convnext
+25. Okra -> ixrbhii/okra-disease-convnext
+26. Papaya -> ixrbhii/papaya-disease-convnext
+27. Peach -> ixrbhii/peach-disease-convnext
+28. Pear -> ixrbhii/pear-disease-convnext
+29. Pomegranate -> ixrbhii/pomegranate-disease-convnext
+30. Potato -> ixrbhii/potato-disease-convnext
+31. Rice -> ixrbhii/rice-disease-convnext
+32. Ridge Gourd -> ixrbhii/ridge-gourd-disease-convnext
+33. Rose -> ixrbhii/rose-disease-convnext
+34. Snake Gourd -> ixrbhii/snake-gourd-disease-convnext
+35. Soybean -> ixrbhii/soybean-disease-convnext
+36. Strawberry -> ixrbhii/strawberry-disease-convnext
+37. Sugarcane -> ixrbhii/sugarcane-disease-convnext
+38. Tea -> ixrbhii/tea-disease-convnext
+39. Tomato -> ixrbhii/tomato-disease-convnext
+40. Walnut -> ixrbhii/walnut-disease-convnext
+41. Watermelon -> ixrbhii/watermelon-disease-convnext

@@ -1,7 +1,10 @@
-   
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import "./App.css";
+
+// API responses are loosely typed in this prototype.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiData = any;
 
 type Language = "en" | "kn" | "hi" | "ml" | "ta" | "te";
 type Page =
@@ -12,13 +15,26 @@ type Page =
   | "spraying"
   | "records";
 
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+// Set VITE_API_URL in your frontend .env file to point to the backend.
+// Local development fallback: each teammate runs their own backend on port 8000.
+const API = (
+  import.meta.env.VITE_API_URL?.trim() || "http://127.0.0.1:8000"
+).replace(/\/+$/, "");
 
+// Mirrors SUPPORTED_CROPS in disease_detector.py (45 crops).
 const supportedCrops = [
-  "Apple", "Bell Pepper", "Blueberry", "Cherry", "Corn", "Grape",
-  "Orange", "Peach", "Potato", "Raspberry", "Soybean", "Squash",
-  "Strawberry", "Tomato",
+  "Apple", "Apricot", "Banana", "Bell Pepper", "Betel", "Bitter Gourd",
+  "Black Pepper", "Blueberry", "Bottle Gourd", "Brinjal", "Cashew", "Cassava",
+  "Cherry", "Chrysanthemum", "Coconut", "Coffee", "Corn", "Cucumber",
+  "Cucurbit", "Custard Apple", "Fig", "Grape", "Guava", "Loquat",
+  "Mango", "Okra", "Orange", "Papaya", "Peach", "Pear",
+  "Pomegranate", "Potato", "Raspberry", "Rice", "Ridge Gourd", "Rose",
+  "Snake Gourd", "Soybean", "Squash", "Strawberry", "Sugarcane", "Tea",
+  "Tomato", "Walnut", "Watermelon",
 ];
+
+// Crops without a dedicated ConvNeXt model use the MobileNetV2 fallback.
+const mobilenetOnlyCrops = new Set(["Bell Pepper", "Blueberry", "Raspberry", "Squash"]);
 
 const languageNames: Record<Language, string> = {
   en: "English",
@@ -47,7 +63,20 @@ const translations: Record<Language, Record<string, string>> = {
     detectTitle: "AI Plant Disease Detection",
     detectText: "Upload a clear crop leaf image for AI screening.",
     upload: "Choose leaf image", selectCrop: "Select supported crop",
-    cropScope: "This model covers 14 crops and 38 PlantVillage classes only. Unsupported crops may be assigned a misleading label; treat every result as a screening aid.",
+    cropScope: "AgriMind AI supports 45 crops. 41 use dedicated crop-specific ConvNeXt models; Bell Pepper, Blueberry, Raspberry and Squash use a general MobileNetV2 fallback. Treat every result as a screening aid, not a diagnosis.",
+    searchCrop: "Search crops",
+    cropsAvailable: "crops available",
+    noCropFound: "No matching crop",
+    modelUsed: "Model used",
+    convnextLabel: "Crop-specific ConvNeXt",
+    mobilenetLabel: "MobileNetV2 fallback",
+    cropUnconfirmed: "Unable to confirm the selected crop",
+    leafOnlyNotice: "The models screen a single leaf image. They are not validated for stem, root, fruit or whole-plant diagnosis. Use the result as an initial screening aid only.",
+    removeImage: "Remove selected image",
+    fileTypeError: "Please upload a JPG, PNG or WEBP image.",
+    fileSizeError: "Please choose an image smaller than 10 MB.",
+    fallbackNote: "This crop has no dedicated model, so a general fallback model was used. Results may be less specific.",
+    cropLabel: "Crop",
     analyze: "Analyze image", analyzing: "Analyzing image...",
     prediction: "AI screening result", confidence: "Model score",
     topResults: "Other possible results", warning: "Important notice",
@@ -115,7 +144,20 @@ const translations: Record<Language, Record<string, string>> = {
     detectText: "AI ಪರಿಶೀಲನೆಗಾಗಿ ಬೆಳೆಯ ಎಲೆಯ ಸ್ಪಷ್ಟ ಚಿತ್ರವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
     upload: "ಎಲೆಯ ಚಿತ್ರ ಆಯ್ಕೆಮಾಡಿ",
     selectCrop: "ಬೆಂಬಲಿತ ಬೆಳೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ",
-    cropScope: "ಈ ಮಾದರಿ 14 ಬೆಳೆಗಳು ಮತ್ತು PlantVillage‌ನ 38 ವರ್ಗಗಳಿಗೆ ಮಾತ್ರ ಸೀಮಿತವಾಗಿದೆ. ಬೆಂಬಲವಿಲ್ಲದ ಬೆಳೆಗಳಿಗೆ ತಪ್ಪು ಹೆಸರು ಬರಬಹುದು. ಫಲಿತಾಂಶವನ್ನು ಪ್ರಾಥಮಿಕ ಪರಿಶೀಲನೆಯಾಗಿ ಮಾತ್ರ ಬಳಸಿ.",
+    cropScope: "AgriMind AI 45 ಬೆಳೆಗಳನ್ನು ಬೆಂಬಲಿಸುತ್ತದೆ. 41 ಬೆಳೆಗಳಿಗೆ ವಿಶೇಷ ConvNeXt ಮಾದರಿಗಳಿವೆ; ದೊಣ್ಣೆ ಮೆಣಸು, ಬ್ಲೂಬೆರ್ರಿ, ರಾಸ್ಪ್ಬೆರ್ರಿ ಮತ್ತು ಸ್ಕ್ವ್ಯಾಷ್‌ಗೆ ಸಾಮಾನ್ಯ MobileNetV2 ಮಾದರಿ ಬಳಸಲಾಗುತ್ತದೆ. ಪ್ರತಿ ಫಲಿತಾಂಶವನ್ನು ಪ್ರಾಥಮಿಕ ಪರಿಶೀಲನೆಯಾಗಿ ಮಾತ್ರ ಬಳಸಿ, ರೋಗನಿರ್ಣಯವಲ್ಲ.",
+    searchCrop: "ಬೆಳೆಗಳನ್ನು ಹುಡುಕಿ",
+    cropsAvailable: "ಬೆಳೆಗಳು ಲಭ್ಯ",
+    noCropFound: "ಹೊಂದುವ ಬೆಳೆ ಇಲ್ಲ",
+    modelUsed: "ಬಳಸಿದ ಮಾದರಿ",
+    convnextLabel: "ಬೆಳೆ-ನಿರ್ದಿಷ್ಟ ConvNeXt",
+    mobilenetLabel: "MobileNetV2 ಪರ್ಯಾಯ ಮಾದರಿ",
+    cropUnconfirmed: "ಆಯ್ಕೆ ಮಾಡಿದ ಬೆಳೆಯನ್ನು ದೃಢೀಕರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ",
+    leafOnlyNotice: "ಈ ಮಾದರಿಗಳು ಒಂದು ಎಲೆಯ ಚಿತ್ರವನ್ನು ಪರಿಶೀಲಿಸುತ್ತವೆ. ಕಾಂಡ, ಬೇರು, ಹಣ್ಣು ಅಥವಾ ಸಂಪೂರ್ಣ ಗಿಡದ ರೋಗನಿರ್ಣಯಕ್ಕೆ ಇವು ಪರಿಶೀಲಿಸಲ್ಪಟ್ಟಿಲ್ಲ. ಫಲಿತಾಂಶವನ್ನು ಪ್ರಾಥಮಿಕ ಪರಿಶೀಲನೆಗೆ ಮಾತ್ರ ಬಳಸಿ.",
+    removeImage: "ಆಯ್ಕೆ ಮಾಡಿದ ಚಿತ್ರವನ್ನು ತೆಗೆದುಹಾಕಿ",
+    fileTypeError: "JPG, PNG ಅಥವಾ WEBP ಚಿತ್ರವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
+    fileSizeError: "10 MB ಗಿಂತ ಚಿಕ್ಕ ಚಿತ್ರವನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
+    fallbackNote: "ಈ ಬೆಳೆಗೆ ವಿಶೇಷ ಮಾದರಿ ಇಲ್ಲ, ಆದ್ದರಿಂದ ಸಾಮಾನ್ಯ ಪರ್ಯಾಯ ಮಾದರಿ ಬಳಸಲಾಗಿದೆ. ಫಲಿತಾಂಶ ಕಡಿಮೆ ನಿರ್ದಿಷ್ಟವಾಗಿರಬಹುದು.",
+    cropLabel: "ಬೆಳೆ",
     analyze: "ಚಿತ್ರವನ್ನು ವಿಶ್ಲೇಷಿಸಿ", analyzing: "ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ...",
     prediction: "AI ಪರಿಶೀಲನೆಯ ಫಲಿತಾಂಶ", confidence: "ಮಾದರಿಯ ಅಂಕ",
     topResults: "ಇತರ ಸಾಧ್ಯ ಫಲಿತಾಂಶಗಳು", warning: "ಮುಖ್ಯ ಸೂಚನೆ",
@@ -181,7 +223,20 @@ const translations: Record<Language, Record<string, string>> = {
     detectTitle: "AI पौधों के रोग की पहचान",
     detectText: "AI जाँच के लिए फसल की पत्ती की साफ तस्वीर अपलोड करें।",
     upload: "पत्ती की तस्वीर चुनें", selectCrop: "समर्थित फसल चुनें",
-    cropScope: "यह मॉडल केवल 14 फसलों और PlantVillage की 38 श्रेणियों तक सीमित है। असमर्थित फसल को गलत नाम मिल सकता है। परिणाम को केवल शुरुआती जाँच मानें।",
+    cropScope: "AgriMind AI 45 फसलों को सपोर्ट करता है। 41 फसलों के लिए अलग ConvNeXt मॉडल हैं; शिमला मिर्च, ब्लूबेरी, रास्पबेरी और स्क्वैश के लिए सामान्य MobileNetV2 मॉडल इस्तेमाल होता है। हर परिणाम को केवल शुरुआती जाँच मानें, निदान नहीं।",
+    searchCrop: "फसल खोजें",
+    cropsAvailable: "फसलें उपलब्ध",
+    noCropFound: "कोई मेल खाती फसल नहीं",
+    modelUsed: "उपयोग किया गया मॉडल",
+    convnextLabel: "फसल-विशिष्ट ConvNeXt",
+    mobilenetLabel: "MobileNetV2 वैकल्पिक मॉडल",
+    cropUnconfirmed: "चुनी गई फसल की पुष्टि नहीं हो सकी",
+    leafOnlyNotice: "ये मॉडल एक पत्ती की तस्वीर की जाँच करते हैं। तना, जड़, फल या पूरे पौधे के निदान के लिए ये प्रमाणित नहीं हैं। परिणाम को केवल शुरुआती जाँच के रूप में उपयोग करें।",
+    removeImage: "चुनी गई तस्वीर हटाएँ",
+    fileTypeError: "कृपया JPG, PNG या WEBP तस्वीर अपलोड करें।",
+    fileSizeError: "कृपया 10 MB से छोटी तस्वीर चुनें।",
+    fallbackNote: "इस फसल के लिए अलग मॉडल नहीं है, इसलिए सामान्य वैकल्पिक मॉडल इस्तेमाल हुआ। परिणाम कम सटीक हो सकता है।",
+    cropLabel: "फसल",
     analyze: "तस्वीर का विश्लेषण करें", analyzing: "विश्लेषण हो रहा है...",
     prediction: "AI जाँच का परिणाम", confidence: "मॉडल स्कोर",
     topResults: "अन्य संभावित परिणाम", warning: "महत्वपूर्ण सूचना",
@@ -249,7 +304,20 @@ const translations: Record<Language, Record<string, string>> = {
     detectText: "AI പരിശോധനയ്ക്കായി ഇലയുടെ വ്യക്തമായ ചിത്രം അപ്‌ലോഡ് ചെയ്യുക.",
     upload: "ഇലയുടെ ചിത്രം തിരഞ്ഞെടുക്കുക",
     selectCrop: "പിന്തുണയ്ക്കുന്ന വിള തിരഞ്ഞെടുക്കുക",
-    cropScope: "ഈ മോഡൽ 14 വിളകളിലെയും PlantVillage-ലെ 38 വിഭാഗങ്ങളിലെയും ചിത്രങ്ങൾക്കു മാത്രമാണ്. പിന്തുണയില്ലാത്ത വിളയ്ക്ക് തെറ്റായ പേര് ലഭിക്കാം. ഫലം പ്രാഥമിക പരിശോധനയായി മാത്രം കാണുക.",
+    cropScope: "AgriMind AI 45 വിളകളെ പിന്തുണയ്ക്കുന്നു. 41 വിളകൾക്ക് പ്രത്യേക ConvNeXt മോഡലുകളുണ്ട്; ബെൽ പെപ്പർ, ബ്ലൂബെറി, റാസ്ബെറി, സ്ക്വാഷ് എന്നിവയ്ക്ക് പൊതുവായ MobileNetV2 മോഡൽ ഉപയോഗിക്കുന്നു. ഓരോ ഫലവും പ്രാഥമിക പരിശോധനയായി മാത്രം കാണുക, രോഗനിർണയമായി അല്ല.",
+    searchCrop: "വിളകൾ തിരയുക",
+    cropsAvailable: "വിളകൾ ലഭ്യമാണ്",
+    noCropFound: "പൊരുത്തപ്പെടുന്ന വിള ഇല്ല",
+    modelUsed: "ഉപയോഗിച്ച മോഡൽ",
+    convnextLabel: "വിള-നിർദ്ദിഷ്ട ConvNeXt",
+    mobilenetLabel: "MobileNetV2 ബദൽ മോഡൽ",
+    cropUnconfirmed: "തിരഞ്ഞെടുത്ത വിള സ്ഥിരീകരിക്കാൻ കഴിഞ്ഞില്ല",
+    leafOnlyNotice: "ഈ മോഡലുകൾ ഒരു ഇലയുടെ ചിത്രം മാത്രമാണ് പരിശോധിക്കുന്നത്. തണ്ട്, വേര്, പഴം, മുഴുവൻ ചെടി എന്നിവയുടെ രോഗനിർണയത്തിന് ഇവ സാധൂകരിച്ചിട്ടില്ല. ഫലം പ്രാഥമിക പരിശോധനയ്ക്ക് മാത്രം ഉപയോഗിക്കുക.",
+    removeImage: "തിരഞ്ഞെടുത്ത ചിത്രം നീക്കം ചെയ്യുക",
+    fileTypeError: "JPG, PNG അല്ലെങ്കിൽ WEBP ചിത്രം അപ്‌ലോഡ് ചെയ്യുക.",
+    fileSizeError: "10 MB-യിൽ കുറവുള്ള ചിത്രം തിരഞ്ഞെടുക്കുക.",
+    fallbackNote: "ഈ വിളയ്ക്ക് പ്രത്യേക മോഡൽ ഇല്ലാത്തതിനാൽ പൊതുവായ ബദൽ മോഡൽ ഉപയോഗിച്ചു. ഫലം അത്ര കൃത്യമല്ലാതിരിക്കാം.",
+    cropLabel: "വിള",
     analyze: "ചിത്രം വിശകലനം ചെയ്യുക", analyzing: "വിശകലനം ചെയ്യുന്നു...",
     prediction: "AI പരിശോധനാ ഫലം", confidence: "മോഡൽ സ്കോർ",
     topResults: "മറ്റ് സാധ്യതയുള്ള ഫലങ്ങൾ", warning: "പ്രധാന അറിയിപ്പ്",
@@ -317,7 +385,20 @@ const translations: Record<Language, Record<string, string>> = {
     detectText: "AI பரிசோதனைக்காக தெளிவான இலைப் படத்தைப் பதிவேற்றவும்.",
     upload: "இலைப் படத்தைத் தேர்ந்தெடுக்கவும்",
     selectCrop: "ஆதரிக்கப்படும் பயிரைத் தேர்ந்தெடுக்கவும்",
-    cropScope: "இந்த மாதிரி 14 பயிர்கள் மற்றும் PlantVillage-இன் 38 வகைகளை மட்டுமே உள்ளடக்குகிறது. ஆதரிக்கப்படாத பயிருக்கு தவறான பெயர் வழங்கப்படலாம். முடிவை ஆரம்பநிலை சோதனையாக மட்டும் கருதுங்கள்.",
+    cropScope: "AgriMind AI 45 பயிர்களை ஆதரிக்கிறது. 41 பயிர்களுக்கு தனிப்பட்ட ConvNeXt மாதிரிகள் உள்ளன; குடைமிளகாய், ப்ளூபெர்ரி, ராஸ்பெர்ரி மற்றும் ஸ்குவாஷுக்கு பொதுவான MobileNetV2 மாதிரி பயன்படுத்தப்படுகிறது. ஒவ்வொரு முடிவையும் ஆரம்பநிலை சோதனையாக மட்டும் கருதுங்கள், நோய் கண்டறிதலாக அல்ல.",
+    searchCrop: "பயிர்களைத் தேடுங்கள்",
+    cropsAvailable: "பயிர்கள் உள்ளன",
+    noCropFound: "பொருந்தும் பயிர் இல்லை",
+    modelUsed: "பயன்படுத்தப்பட்ட மாதிரி",
+    convnextLabel: "பயிர்-குறிப்பிட்ட ConvNeXt",
+    mobilenetLabel: "MobileNetV2 மாற்று மாதிரி",
+    cropUnconfirmed: "தேர்ந்தெடுத்த பயிரை உறுதிப்படுத்த முடியவில்லை",
+    leafOnlyNotice: "இந்த மாதிரிகள் ஒரு இலையின் படத்தை மட்டுமே சோதிக்கின்றன. தண்டு, வேர், பழம் அல்லது முழுச் செடியின் நோய் கண்டறிதலுக்கு இவை சரிபார்க்கப்படவில்லை. முடிவை ஆரம்பநிலை சோதனைக்கு மட்டும் பயன்படுத்துங்கள்.",
+    removeImage: "தேர்ந்தெடுத்த படத்தை நீக்கு",
+    fileTypeError: "JPG, PNG அல்லது WEBP படத்தைப் பதிவேற்றவும்.",
+    fileSizeError: "10 MB-க்குக் குறைவான படத்தைத் தேர்ந்தெடுக்கவும்.",
+    fallbackNote: "இந்தப் பயிருக்குத் தனி மாதிரி இல்லை, எனவே பொதுவான மாற்று மாதிரி பயன்படுத்தப்பட்டது. முடிவு குறைந்த துல்லியத்துடன் இருக்கலாம்.",
+    cropLabel: "பயிர்",
     analyze: "படத்தை ஆய்வு செய்யவும்", analyzing: "ஆய்வு செய்யப்படுகிறது...",
     prediction: "AI பரிசோதனை முடிவு", confidence: "மாதிரி மதிப்பெண்",
     topResults: "மற்ற சாத்தியமான முடிவுகள்", warning: "முக்கிய அறிவிப்பு",
@@ -384,7 +465,20 @@ const translations: Record<Language, Record<string, string>> = {
     detectText: "AI పరీక్ష కోసం స్పష్టమైన ఆకు చిత్రాన్ని అప్‌లోడ్ చేయండి.",
     upload: "ఆకు చిత్రాన్ని ఎంచుకోండి",
     selectCrop: "మద్దతు ఉన్న పంటను ఎంచుకోండి",
-    cropScope: "ఈ మోడల్ 14 పంటలు మరియు PlantVillage‌లోని 38 తరగతులకు మాత్రమే పరిమితం. మద్దతు లేని పంటకు తప్పు పేరు రావచ్చు. ఫలితాన్ని ప్రాథమిక పరిశీలనగా మాత్రమే చూడండి.",
+    cropScope: "AgriMind AI 45 పంటలకు మద్దతు ఇస్తుంది. 41 పంటలకు ప్రత్యేక ConvNeXt మోడళ్లు ఉన్నాయి; క్యాప్సికమ్, బ్లూబెర్రీ, రాస్ప్‌బెర్రీ మరియు స్క్వాష్‌కు సాధారణ MobileNetV2 మోడల్ ఉపయోగిస్తారు. ప్రతి ఫలితాన్ని ప్రాథమిక పరిశీలనగా మాత్రమే చూడండి, రోగ నిర్ధారణగా కాదు.",
+    searchCrop: "పంటలను వెతకండి",
+    cropsAvailable: "పంటలు అందుబాటులో ఉన్నాయి",
+    noCropFound: "సరిపోయే పంట లేదు",
+    modelUsed: "ఉపయోగించిన మోడల్",
+    convnextLabel: "పంట-నిర్దిష్ట ConvNeXt",
+    mobilenetLabel: "MobileNetV2 ప్రత్యామ్నాయ మోడల్",
+    cropUnconfirmed: "ఎంచుకున్న పంటను నిర్ధారించలేకపోయాము",
+    leafOnlyNotice: "ఈ మోడళ్లు ఒక ఆకు చిత్రాన్ని మాత్రమే పరిశీలిస్తాయి. కాండం, వేరు, పండు లేదా మొత్తం మొక్క నిర్ధారణకు ఇవి ధృవీకరించబడలేదు. ఫలితాన్ని ప్రాథమిక పరిశీలనకు మాత్రమే ఉపయోగించండి.",
+    removeImage: "ఎంచుకున్న చిత్రాన్ని తొలగించండి",
+    fileTypeError: "దయచేసి JPG, PNG లేదా WEBP చిత్రాన్ని అప్‌లోడ్ చేయండి.",
+    fileSizeError: "దయచేసి 10 MB కంటే చిన్న చిత్రాన్ని ఎంచుకోండి.",
+    fallbackNote: "ఈ పంటకు ప్రత్యేక మోడల్ లేదు, కాబట్టి సాధారణ ప్రత్యామ్నాయ మోడల్ ఉపయోగించబడింది. ఫలితం తక్కువ ఖచ్చితంగా ఉండవచ్చు.",
+    cropLabel: "పంట",
     analyze: "చిత్రాన్ని విశ్లేషించండి", analyzing: "విశ్లేషిస్తోంది...",
     prediction: "AI పరీక్ష ఫలితం", confidence: "మోడల్ స్కోరు",
     topResults: "ఇతర సాధ్యమైన ఫలితాలు", warning: "ముఖ్యమైన గమనిక",
@@ -916,6 +1010,8 @@ function getDiseaseCategory(prediction: string): DiseaseGuide["category"] {
 
   if (
     label.includes("yellow leaf curl") ||
+    label.includes("leaf curl") ||
+    label.includes("mosaic") ||
     label.includes("virus") ||
     label.includes("viral")
   ) {
@@ -925,7 +1021,14 @@ function getDiseaseCategory(prediction: string): DiseaseGuide["category"] {
   if (
     label.includes("spider mite") ||
     label.includes("mite") ||
-    label.includes("pest")
+    label.includes("pest") ||
+    label.includes("leaf miner") ||
+    label.includes("leafminer") ||
+    label.includes("aphid") ||
+    label.includes("whitefly") ||
+    label.includes("thrips") ||
+    label.includes("caterpillar") ||
+    label.includes("armyworm")
   ) {
     return "pest";
   }
@@ -942,6 +1045,12 @@ function getDiseaseCategory(prediction: string): DiseaseGuide["category"] {
     "septoria",
     "target spot",
     "cercospora",
+    "anthracnose",
+    "fusarium",
+    "blast",
+    "downy",
+    "sooty",
+    "canker",
     "fungal",
   ];
 
@@ -960,17 +1069,87 @@ function getDiseaseGuide(prediction: string, language: Language) {
   };
 }
 
+// ---------------------------------------------------------------
+// Disease label helpers
+// The backend now returns raw model labels such as "Tomato___Early_blight",
+// so labels are cleaned for display and matched loosely to translations.
+// ---------------------------------------------------------------
+
+function prettifyLabel(raw: string) {
+  return String(raw ?? "")
+    .split("___")
+    .map((part) => part.replace(/[_,]+/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .map((part) =>
+      part
+        .split(" ")
+        .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+        .join(" ")
+    )
+    .join(" – ");
+}
+
+function normalizeLabelKey(value: string) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\(maize\)/g, " ")
+    .replace(/___/g, " ")
+    .replace(/\bwith\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\bpepper bell\b/g, "bell pepper")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const normalizedTranslationCache: Partial<
+  Record<Exclude<Language, "en">, Record<string, string>>
+> = {};
+
+function lookupDiseaseTranslation(
+  language: Exclude<Language, "en">,
+  value: string
+) {
+  let cache = normalizedTranslationCache[language];
+
+  if (!cache) {
+    cache = {};
+    for (const [key, translated] of Object.entries(diseaseTranslations[language])) {
+      cache[normalizeLabelKey(key)] = translated;
+    }
+    normalizedTranslationCache[language] = cache;
+  }
+
+  return (
+    diseaseTranslations[language][value] || cache[normalizeLabelKey(value)]
+  );
+}
+
+type GuideView = {
+  kind: "healthy" | "disease" | "unknown";
+  meaning: string;
+  symptoms: string[];
+  causes: string[];
+  steps: string[];
+};
+
+function asStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim() !== "")
+    : [];
+}
+
 function App() {
   const [language, setLanguage] = useState<Language>("en");
   const [started, setStarted] = useState(false);
   const [page, setPage] = useState<Page>("dashboard");
-  const [cropData, setCropData] = useState<any>(null);
-  const [advisoryData, setAdvisoryData] = useState<any>(null);
-  const [sensorRecords, setSensorRecords] = useState<any[]>([]);
-  const [sprayingResult, setSprayingResult] = useState<any>(null);
-  const [diseaseResult, setDiseaseResult] = useState<any>(null);
+  const [cropData, setCropData] = useState<ApiData>(null);
+  const [advisoryData, setAdvisoryData] = useState<ApiData>(null);
+  const [sensorRecords, setSensorRecords] = useState<ApiData[]>([]);
+  const [sprayingResult, setSprayingResult] = useState<ApiData>(null);
+  const [diseaseResult, setDiseaseResult] = useState<ApiData>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedCrop, setSelectedCrop] = useState("Tomato");
+  const [cropQuery, setCropQuery] = useState("");
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -980,8 +1159,8 @@ function App() {
     translations[language][key] || translations.en[key] || key;
 
   const translateDisease = (value: string) => {
-    if (language === "en") return value;
-    return diseaseTranslations[language][value] || value;
+    if (language === "en") return prettifyLabel(value);
+    return lookupDiseaseTranslation(language, value) || prettifyLabel(value);
   };
 
   const translateAdvisory = (value: string) => {
@@ -1085,6 +1264,7 @@ function App() {
     if (page === "records") {
       loadSensorRecords();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, page]);
 
   const sensor =
@@ -1191,13 +1371,17 @@ function App() {
     if (!file) return;
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Please upload a JPG, PNG or WEBP image.");
+
+      setError(tr("fileTypeError"));
+
       event.target.value = "";
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      setError("Please choose an image smaller than 10 MB.");
+
+      setError(tr("fileSizeError"));
+
       event.target.value = "";
       return;
     }
@@ -1295,12 +1479,71 @@ function App() {
     records: tr("recordsTitle"),
   };
 
-  const guide =
+  const showGuide = Boolean(
     diseaseResult &&
-    diseaseResult.crop_match !== false &&
-    !diseaseResult.uncertain
-      ? getDiseaseGuide(diseaseResult.prediction || "Unknown", language)
-      : null;
+      diseaseResult.crop_match !== false &&
+      !diseaseResult.uncertain
+  );
+
+  const cropMismatch = diseaseResult?.crop_match === false;
+  const usesConvnext = diseaseResult?.model_used === "ConvNeXt";
+  const filteredCrops = supportedCrops.filter((crop) =>
+    crop.toLowerCase().includes(cropQuery.trim().toLowerCase())
+  );
+
+  // English uses the structured disease_info from the backend.
+  // Other languages use the translated local guides, matched by category.
+  let guideView: GuideView | null = null;
+
+  if (showGuide) {
+    const info = diseaseResult.disease_info;
+    const prediction = String(diseaseResult.prediction || "Unknown");
+
+    if (language === "en" && info) {
+      guideView = {
+        kind:
+          info.type === "healthy"
+            ? "healthy"
+            : info.type === "unknown"
+              ? "unknown"
+              : "disease",
+        meaning: String(info.explanation || ""),
+        symptoms: asStringList(info.symptoms),
+        causes: asStringList(info.possible_causes),
+        steps: asStringList(info.next_steps),
+      };
+    } else {
+      const local = getDiseaseGuide(prediction, language);
+      const isHealthy =
+        local.category === "healthy" || info?.type === "healthy";
+
+      if (isHealthy) {
+        guideView = {
+          kind: "healthy",
+          meaning: tr("healthyText"),
+          symptoms: [],
+          causes: [],
+          steps: [tr("healthyAction")],
+        };
+      } else if (local.category === "unknown") {
+        guideView = {
+          kind: "unknown",
+          meaning: tr("unknownText"),
+          symptoms: [local.symptoms],
+          causes: [],
+          steps: [tr("unknownAction")],
+        };
+      } else {
+        guideView = {
+          kind: "disease",
+          meaning: local.meaning,
+          symptoms: [local.symptoms],
+          causes: [local.causes],
+          steps: [local.action],
+        };
+      }
+    }
+  }
 
   return (
     <div className="app-layout">
@@ -1537,65 +1780,97 @@ function App() {
                   <h2>{tr("upload")}</h2>
                   <p className="muted">{tr("detectText")}</p>
 
-                  <label className="crop-field">
-                    {tr("selectCrop")}
+                  {/* CROP PICKER */}
+                  <div className="crop-picker">
+                    <div className="crop-picker-top">
+                      <span className="crop-picker-label">
+                        {tr("selectCrop")}
+                      </span>
+                      <span className="crop-count">
+                        {filteredCrops.length} / {supportedCrops.length}{" "}
+                        {tr("cropsAvailable")}
+                      </span>
+                    </div>
 
-                    <select
-                      value={selectedCrop}
-                      onChange={(event) => {
-                        setSelectedCrop(event.target.value);
-                        setDiseaseResult(null);
-                        setSprayingResult(null);
-                      }}
-                    >
-                      {supportedCrops.map((crop) => (
-                        <option key={crop} value={crop}>
+                    <input
+                      type="search"
+                      className="crop-search"
+                      placeholder={tr("searchCrop")}
+                      aria-label={tr("searchCrop")}
+                      value={cropQuery}
+                      onChange={(event) => setCropQuery(event.target.value)}
+                    />
+
+                    <div className="crop-grid" role="listbox" aria-label={tr("selectCrop")}>
+                      {filteredCrops.map((crop) => (
+                        <button
+                          key={crop}
+                          type="button"
+                          role="option"
+                          aria-selected={selectedCrop === crop}
+                          className={
+                            "crop-chip" +
+                            (selectedCrop === crop ? " active" : "") +
+                            (mobilenetOnlyCrops.has(crop) ? " fallback" : "")
+                          }
+                          onClick={() => {
+                            setSelectedCrop(crop);
+                            setDiseaseResult(null);
+                            setSprayingResult(null);
+                            setError("");
+                          }}
+                        >
                           {crop}
-                        </option>
+                        </button>
                       ))}
-                    </select>
-                  </label>
+
+                      {!filteredCrops.length && (
+                        <span className="crop-empty">{tr("noCropFound")}</span>
+                      )}
+                    </div>
+
+                    <div className="selected-crop-line">
+                      <span>
+                        {tr("cropLabel")}: <strong>{selectedCrop}</strong>
+                      </span>
+                      <span className="meta-chip">
+                        {mobilenetOnlyCrops.has(selectedCrop)
+                          ? tr("mobilenetLabel")
+                          : tr("convnextLabel")}
+                      </span>
+                    </div>
+                  </div>
 
                   <div className="notice-box">
                     ⓘ {tr("cropScope")}
+                    {mobilenetOnlyCrops.has(selectedCrop) && (
+                      <>
+                        <br />
+                        {tr("fallbackNote")}
+                      </>
+                    )}
                   </div>
 
+                  {/* IMAGE UPLOAD */}
                   <label
-                    className="image-upload-area"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "12px",
-                      minHeight: "230px",
-                      marginTop: "18px",
-                      padding: "22px",
-                      border: "1px dashed rgba(100,150,110,0.55)",
-                      borderRadius: "16px",
-                      background: "rgba(100,150,110,0.05)",
-                      cursor: "pointer",
-                      textAlign: "center",
-                    }}
+                    className={
+                      "upload-zone upload-spaced" + (preview ? " has-preview" : "")
+                    }
                   >
                     {preview ? (
                       <img
+                        className="image-preview"
                         src={preview}
                         alt="Selected crop leaf preview"
-                        style={{
-                          display: "block",
-                          width: "100%",
-                          maxWidth: "320px",
-                          maxHeight: "230px",
-                          objectFit: "contain",
-                          borderRadius: "12px",
-                        }}
                       />
                     ) : (
-                      <span style={{ fontSize: "42px" }}>🍃</span>
+                      <span className="upload-symbol">🍃</span>
                     )}
-                    <strong>{selectedImage ? selectedImage.name : tr("upload")}</strong>
-                    <span className="muted">JPG · PNG · WEBP · MAX 10 MB</span>
+                    <strong>
+                      {selectedImage ? selectedImage.name : tr("upload")}
+                    </strong>
+                    <small>JPG · PNG · WEBP · MAX 10 MB</small>
+
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
@@ -1617,13 +1892,14 @@ function App() {
                         setError("");
                       }}
                     >
-                      Remove selected image
+
+                      {tr("removeImage")}
                     </button>
                   )}
 
-                  <div className="notice-box">
-                    The current pretrained model screens a single leaf image. It is not validated for stem, root, fruit or whole-plant diagnosis. Use the result as an initial screening aid only.
-                  </div>
+                  
+
+                  <div className="notice-box">{tr("leafOnlyNotice")}</div>
 
                   <button
                     className="primary-button full-button"
@@ -1648,30 +1924,53 @@ function App() {
 
                   {diseaseResult ? (
                     <>
-                      <div className="result-name">
-                        {translateDisease(
-                          diseaseResult.prediction || "Unknown"
+                      <div className="result-meta">
+                        <span className="meta-chip">
+                          🌾 {tr("cropLabel")}:{" "}
+                          {diseaseResult.selected_crop || selectedCrop}
+                        </span>
+
+                        {diseaseResult.model_used && (
+                          <span
+                            className="meta-chip"
+                            title={diseaseResult.model_id || undefined}
+                          >
+                            ⚙ {tr("modelUsed")}:{" "}
+                            {usesConvnext
+                              ? tr("convnextLabel")
+                              : tr("mobilenetLabel")}
+                          </span>
                         )}
                       </div>
 
-                      {diseaseResult.crop_match !== false && (
+                      <div
+                        className={
+                          "result-name" + (cropMismatch ? " result-name-muted" : "")
+                        }
+                      >
+                        {cropMismatch
+                          ? tr("cropUnconfirmed")
+                          : translateDisease(diseaseResult.prediction || "Unknown")}
+                      </div>
+
+                      {!cropMismatch && (
                         <>
                           <div className="confidence-row">
                             <span>{tr("confidence")}</span>
-                            <strong>
-                              {diseaseResult.confidence}%
-                            </strong>
+                            <strong>{diseaseResult.confidence}%</strong>
                           </div>
 
-                          <div className="confidence-track">
+                          <div
+                            className={
+                              "confidence-track" +
+                              (diseaseResult.uncertain ? " is-low" : "")
+                            }
+                          >
                             <div
                               style={{
                                 width: `${Math.min(
                                   100,
-                                  Math.max(
-                                    0,
-                                    Number(diseaseResult.confidence) || 0
-                                  )
+                                  Math.max(0, Number(diseaseResult.confidence) || 0)
                                 )}%`,
                               }}
                             />
@@ -1679,40 +1978,43 @@ function App() {
 
                           {Array.isArray(diseaseResult.top_predictions) &&
                             diseaseResult.top_predictions.map(
-                              (item: any, index: number) => (
+                              (item: ApiData, index: number) => (
                                 <div
-                                  className="prediction-row"
+                                  className={
+                                    "prediction-row" + (index === 0 ? " is-top" : "")
+                                  }
                                   key={index}
                                 >
-                                  <span>
-                                    {translateDisease(item.disease)}
-                                  </span>
+                                  <span>{translateDisease(item.disease)}</span>
                                   <strong>{item.confidence}%</strong>
                                 </div>
                               )
                             )}
+
+                          {!usesConvnext && (
+                            <div className="notice-box">
+                              ⓘ {tr("fallbackNote")}
+                            </div>
+                          )}
                         </>
                       )}
 
                       {/* CROP MISMATCH */}
-                      {diseaseResult.crop_match === false ? (
-                        <div className="notice-box">
-                          ⓘ {tr("cropMismatch")}
+                      {cropMismatch ? (
+                        <div className="notice-box notice-warning">
+                          ⚠{" "}
+                          {language === "en" && diseaseResult.warning
+                            ? diseaseResult.warning
+                            : tr("cropMismatch")}
                         </div>
                       ) : diseaseResult.uncertain ? (
                         /* LOW CONFIDENCE */
                         <>
-                          <div
-                            className="notice-box"
-                            style={{ marginTop: "18px" }}
-                          >
+                          <div className="notice-box notice-warning">
                             ⚠ {tr("lowConfidence")}
                           </div>
 
-                          <div
-                            className="guide-card"
-                            style={{ marginTop: "16px" }}
-                          >
+                          <div className="guide-card guide-spaced">
                             <h3>⚠ {tr("uncertainTitle")}</h3>
                             <p>{tr("uncertainText")}</p>
                           </div>
@@ -1720,135 +2022,63 @@ function App() {
                       ) : (
                         /* DISEASE EXPLANATION */
                         <>
-                          {guide && (
-                            <div
-                              className="disease-guide"
-                              style={{
-                                display: "grid",
-                                gap: "12px",
-                                marginTop: "22px",
-                              }}
-                            >
+                          {guideView && (
+                            <div className="disease-guide">
                               <div
-                                className="guide-card"
-                                style={{
-                                  padding: "17px",
-                                  borderRadius: "14px",
-                                  border: "1px solid rgba(100,150,110,0.2)",
-                                  background: "rgba(100,150,110,0.06)",
-                                }}
+                                className={
+                                  "guide-card" +
+                                  (guideView.kind === "healthy" ? " guide-healthy" : "")
+                                }
                               >
-                                <h3 style={{ margin: "0 0 9px", fontSize: "15px" }}>
-                                  {guide.category === "healthy"
-                                    ? "🌿"
-                                    : "🔍"}{" "}
-                                  {guide.category === "healthy"
-                                    ? tr("healthyTitle")
-                                    : tr("meaning")}
+                                <h3>
+                                  {guideView.kind === "healthy"
+                                    ? "🌿 " + tr("healthyTitle")
+                                    : guideView.kind === "unknown"
+                                      ? "🔎 " + tr("unknownTitle")
+                                      : "🔍 " + tr("meaning")}
                                 </h3>
-
-                                <p style={{ margin: 0, lineHeight: 1.7 }}>
-                                  {guide.category === "healthy"
-                                    ? tr("healthyText")
-                                    : guide.meaning}
-                                </p>
+                                <p>{guideView.meaning}</p>
                               </div>
 
-                              {guide.category !== "healthy" &&
-                                guide.category !== "unknown" && (
-                                  <>
-                                    <div
-                                      className="guide-card"
-                                      style={{
-                                        padding: "17px",
-                                        borderRadius: "14px",
-                                        border: "1px solid rgba(100,150,110,0.2)",
-                                        background: "rgba(100,150,110,0.06)",
-                                      }}
-                                    >
-                                      <h3 style={{ margin: "0 0 9px", fontSize: "15px" }}>
-                                        🌱 {tr("symptoms")}
-                                      </h3>
-                                      <p style={{ margin: 0, lineHeight: 1.7 }}>
-                                        {guide.symptoms}
-                                      </p>
-                                    </div>
-
-                                    <div
-                                      className="guide-card"
-                                      style={{
-                                        padding: "17px",
-                                        borderRadius: "14px",
-                                        border: "1px solid rgba(100,150,110,0.2)",
-                                        background: "rgba(100,150,110,0.06)",
-                                      }}
-                                    >
-                                      <h3 style={{ margin: "0 0 9px", fontSize: "15px" }}>
-                                        🧬 {tr("causes")}
-                                      </h3>
-                                      <p style={{ margin: 0, lineHeight: 1.7 }}>
-                                        {guide.causes}
-                                      </p>
-                                    </div>
-                                  </>
+                              {guideView.kind !== "healthy" &&
+                                guideView.symptoms.length > 0 && (
+                                  <div className="guide-card">
+                                    <h3>🌱 {tr("symptoms")}</h3>
+                                    <ul className="guide-list">
+                                      {guideView.symptoms.map((item, index) => (
+                                        <li key={index}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
                                 )}
 
-                              {guide.category === "unknown" && (
-                                <div
-                                  className="guide-card"
-                                  style={{
-                                    padding: "17px",
-                                    borderRadius: "14px",
-                                    border: "1px solid rgba(100,150,110,0.2)",
-                                    background: "rgba(100,150,110,0.06)",
-                                  }}
-                                >
-                                  <h3 style={{ margin: "0 0 9px", fontSize: "15px" }}>
-                                    🔎 {tr("unknownTitle")}
-                                  </h3>
-                                  <p style={{ margin: "0 0 10px", lineHeight: 1.7 }}>
-                                    {tr("unknownText")}
-                                  </p>
-                                  <p style={{ margin: 0, lineHeight: 1.7 }}>
-                                    {guide.symptoms}
-                                  </p>
+                              {guideView.kind !== "healthy" &&
+                                guideView.causes.length > 0 && (
+                                  <div className="guide-card">
+                                    <h3>🧬 {tr("causes")}</h3>
+                                    <ul className="guide-list">
+                                      {guideView.causes.map((item, index) => (
+                                        <li key={index}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                              {guideView.steps.length > 0 && (
+                                <div className="guide-card">
+                                  <h3>💡 {tr("nextSteps")}</h3>
+                                  <ul className="guide-list">
+                                    {guideView.steps.map((item, index) => (
+                                      <li key={index}>{item}</li>
+                                    ))}
+                                  </ul>
                                 </div>
                               )}
-
-                              <div
-                                className="guide-card"
-                                style={{
-                                  padding: "17px",
-                                  borderRadius: "14px",
-                                  border: "1px solid rgba(100,150,110,0.2)",
-                                  background: "rgba(100,150,110,0.06)",
-                                }}
-                              >
-                                <h3 style={{ margin: "0 0 9px", fontSize: "15px" }}>
-                                  💡 {tr("nextSteps")}
-                                </h3>
-
-                                <p style={{ margin: 0, lineHeight: 1.7 }}>
-                                  {guide.category === "healthy"
-                                    ? tr("healthyAction")
-                                    : guide.category === "unknown"
-                                      ? tr("unknownAction")
-                                      : guide.action}
-                                </p>
-                              </div>
                             </div>
                           )}
 
-                          <div
-                            className="notice-box"
-                            style={{ marginTop: "16px" }}
-                          >
-                            ⓘ {tr("disclaimer")}
-                          </div>
-
-                          <div className="notice-box">
-                            {tr("screeningNotice")}
-                          </div>
+                          <div className="notice-box">ⓘ {tr("disclaimer")}</div>
+                          <div className="notice-box">{tr("screeningNotice")}</div>
                         </>
                       )}
                     </>
@@ -2040,7 +2270,7 @@ function App() {
 
                         {Array.isArray(sprayingResult.zones) &&
                         sprayingResult.zones.length > 0 ? (
-                          sprayingResult.zones.map((zone: any) => (
+                          sprayingResult.zones.map((zone: ApiData) => (
                             <div
                               className="detail-row"
                               key={zone.zone_id}
