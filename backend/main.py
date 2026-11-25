@@ -40,8 +40,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Initialize database
 initialize_database()
 
+
+# CORS configuration
 allowed_origins = os.getenv(
     "AGRIMIND_ALLOWED_ORIGINS",
     (
@@ -65,6 +68,7 @@ app.add_middleware(
 )
 
 
+# Device sensor payload
 class DeviceReading(BaseModel):
     """Validated payload shape for a future ESP32/Arduino telemetry client."""
 
@@ -78,6 +82,7 @@ class DeviceReading(BaseModel):
     timestamp: datetime | None = None
 
 
+# Home endpoint
 @app.get("/")
 def home():
     return {
@@ -88,6 +93,7 @@ def home():
     }
 
 
+# Health check
 @app.get("/health")
 def health_check():
     return {
@@ -96,6 +102,7 @@ def health_check():
     }
 
 
+# Existing single-image crop disease detection
 @app.post("/predict-disease")
 async def detect_disease(
     file: UploadFile = File(...),
@@ -151,7 +158,11 @@ async def detect_disease(
             image.verify()
             image = Image.open(BytesIO(image_bytes)).convert("RGB")
 
-        except (UnidentifiedImageError, OSError, ValueError) as error:
+        except (
+            UnidentifiedImageError,
+            OSError,
+            ValueError,
+        ) as error:
             raise HTTPException(
                 status_code=400,
                 detail="The uploaded file is not a valid image.",
@@ -170,6 +181,7 @@ async def detect_disease(
 
     except Exception:
         logger.exception("Disease detection failed")
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -182,6 +194,7 @@ async def detect_disease(
         await file.close()
 
 
+# Sensor data endpoint
 @app.get("/sensor-data")
 def sensor_readings():
     data = get_sensor_data()
@@ -194,6 +207,7 @@ def sensor_readings():
     }
 
 
+# Sensor history endpoint
 @app.get("/sensor-records")
 def sensor_records(
     limit: int = Query(default=100, ge=1, le=500),
@@ -204,6 +218,7 @@ def sensor_records(
     }
 
 
+# Receive ESP32 / Arduino sensor readings
 @app.post("/sensor-readings")
 def receive_device_reading(reading: DeviceReading):
     if (reading.latitude is None) != (reading.longitude is None):
@@ -214,6 +229,7 @@ def receive_device_reading(reading: DeviceReading):
 
     data = reading.model_dump(mode="json")
     data["source"] = "DEVICE_INGESTION"
+
     save_sensor_reading(data)
 
     return {
@@ -227,10 +243,12 @@ def receive_device_reading(reading: DeviceReading):
     }
 
 
+# Crop intelligence endpoint
 @app.get("/crop-intelligence")
 def crop_intelligence():
     data = get_sensor_data()
     save_sensor_reading(data)
+
     observations = analyze_sensor_data(data)
 
     return {
@@ -245,12 +263,13 @@ def crop_intelligence():
     }
 
 
+# AI advisory endpoint
 @app.get("/ai-advisory")
 def ai_advisory():
     data = get_sensor_data()
     save_sensor_reading(data)
-    observations = analyze_sensor_data(data)
 
+    observations = analyze_sensor_data(data)
     advisory = generate_advisory(sensor_data=data)
 
     return {
@@ -262,6 +281,7 @@ def ai_advisory():
     }
 
 
+# Precision spraying endpoint
 @app.post("/precision-spraying")
 def precision_spraying(
     disease_result: dict = Body(...),
@@ -270,11 +290,16 @@ def precision_spraying(
         result = generate_spraying_zones(
             disease_result=disease_result,
         )
+
         return result
 
     except Exception:
         logger.exception("Precision spraying analysis failed")
+
         raise HTTPException(
             status_code=500,
-            detail="Precision spraying analysis failed. Check the server log.",
+            detail=(
+                "Precision spraying analysis failed. "
+                "Check the server log."
+            ),
         )

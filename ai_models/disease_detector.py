@@ -1,4 +1,4 @@
-
+ 
 from functools import lru_cache
 
 import torch
@@ -6,16 +6,38 @@ from PIL import Image
 from torchvision import transforms
 from transformers import AutoModelForImageClassification
 
+
+# ==========================================
+# MODEL CONFIGURATION
+# ==========================================
+
 MODEL_ID = "linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification"
 
 DEVICE = torch.device("cpu")
 CONFIDENCE_THRESHOLD = 55
 
+
 SUPPORTED_CROPS = (
-    "Apple", "Bell Pepper", "Blueberry", "Cherry", "Corn", "Grape",
-    "Orange", "Peach", "Potato", "Raspberry", "Soybean", "Squash",
-    "Strawberry", "Tomato",
+    "Apple",
+    "Bell Pepper",
+    "Blueberry",
+    "Cherry",
+    "Corn",
+    "Grape",
+    "Orange",
+    "Peach",
+    "Potato",
+    "Raspberry",
+    "Soybean",
+    "Squash",
+    "Strawberry",
+    "Tomato",
 )
+
+
+# ==========================================
+# IMAGE PREPROCESSING
+# ==========================================
 
 image_transform = transforms.Compose([
     transforms.Resize(256),
@@ -28,20 +50,38 @@ image_transform = transforms.Compose([
 ])
 
 
+# ==========================================
+# LOAD PRETRAINED MODEL
+# ==========================================
+
 @lru_cache(maxsize=1)
 def load_model():
     print("Loading AgriMind AI disease model...")
-    model = AutoModelForImageClassification.from_pretrained(MODEL_ID)
+
+    model = AutoModelForImageClassification.from_pretrained(
+        MODEL_ID
+    )
+
     model.to(DEVICE)
     model.eval()
+
     print("Disease detection model loaded successfully.")
+
     return model
 
+
+# ==========================================
+# DISEASE INFORMATION
+# ==========================================
 
 def get_disease_information(label):
     """Return cautious, general guidance for a model class label."""
 
-    normalized = label.replace("___", " ").replace("_", " ").casefold()
+    normalized = (
+        label.replace("___", " ")
+        .replace("_", " ")
+        .casefold()
+    )
 
     if "healthy" in normalized:
         return {
@@ -86,6 +126,7 @@ def get_disease_information(label):
                 "Ask a local agricultural expert to confirm the disease before treatment.",
             ],
         },
+
         "black rot": {
             "title": "Black Rot",
             "explanation": (
@@ -106,6 +147,7 @@ def get_disease_information(label):
                 "Seek crop-specific confirmation from an agricultural expert.",
             ],
         },
+
         "early blight": {
             "title": "Early Blight",
             "explanation": (
@@ -128,6 +170,7 @@ def get_disease_information(label):
                 "Confirm the disease locally before choosing a treatment.",
             ],
         },
+
         "late blight": {
             "title": "Late Blight",
             "explanation": (
@@ -150,6 +193,7 @@ def get_disease_information(label):
                 "Contact an agricultural expert promptly for confirmation and advice.",
             ],
         },
+
         "leaf mold": {
             "title": "Leaf Mold",
             "explanation": (
@@ -172,6 +216,7 @@ def get_disease_information(label):
                 "Confirm the cause before treatment.",
             ],
         },
+
         "powdery mildew": {
             "title": "Powdery Mildew",
             "explanation": (
@@ -194,6 +239,7 @@ def get_disease_information(label):
                 "Get crop-specific advice before treatment.",
             ],
         },
+
         "rust": {
             "title": "Rust Disease",
             "explanation": (
@@ -216,6 +262,7 @@ def get_disease_information(label):
                 "Ask an agricultural expert to identify the specific rust disease.",
             ],
         },
+
         "bacterial spot": {
             "title": "Bacterial Spot",
             "explanation": (
@@ -238,6 +285,7 @@ def get_disease_information(label):
                 "Seek local confirmation before treatment.",
             ],
         },
+
         "leaf scorch": {
             "title": "Leaf Scorch",
             "explanation": (
@@ -291,7 +339,12 @@ def get_disease_information(label):
     }
 
 
+# ==========================================
+# DISEASE PREDICTION
+# ==========================================
+
 def predict_disease(image: Image.Image, crop: str):
+
     if image is None:
         raise ValueError("No image was provided.")
 
@@ -301,6 +354,7 @@ def predict_disease(image: Image.Image, crop: str):
     if not isinstance(crop, str) or not crop.strip():
         raise ValueError("Please select a crop.")
 
+    # Validate selected crop
     selected_crop = next(
         (
             supported
@@ -315,41 +369,62 @@ def predict_disease(image: Image.Image, crop: str):
             "This crop is not supported by the current screening model."
         )
 
+    # Prepare image
     image = image.convert("RGB")
+
     width, height = image.size
 
     if width < 64 or height < 64:
         raise ValueError("Please upload a clearer leaf image.")
 
+    # Load model
     model = load_model()
-    input_tensor = image_transform(image).unsqueeze(0).to(DEVICE)
 
+    input_tensor = (
+        image_transform(image)
+        .unsqueeze(0)
+        .to(DEVICE)
+    )
+
+    # Run inference
     with torch.inference_mode():
         outputs = model(pixel_values=input_tensor)
-        probabilities = torch.softmax(outputs.logits, dim=-1)[0]
 
+        probabilities = torch.softmax(
+            outputs.logits,
+            dim=-1,
+        )[0]
+
+    # Get top 3 predictions
     top_values, top_indices = torch.topk(
         probabilities,
         k=min(3, probabilities.shape[0]),
     )
 
     id2label = model.config.id2label
+
     predictions = []
 
     for score, index in zip(top_values, top_indices):
+
         label = id2label.get(
             str(index.item()),
             id2label.get(index.item(), "Unknown"),
         )
+
         predictions.append({
             "disease": label,
             "confidence": round(score.item() * 100, 2),
         })
 
+    # Best prediction
     best_prediction = predictions[0]
+
     confidence = best_prediction["confidence"]
+
     predicted_label = best_prediction["disease"].casefold()
 
+    # Identify crop from model label
     prediction_crop = next(
         (
             supported
@@ -365,7 +440,9 @@ def predict_disease(image: Image.Image, crop: str):
 
     crop_matches = prediction_crop == selected_crop
 
+    # Crop mismatch handling
     if not crop_matches:
+
         return {
             "success": True,
             "prediction": "Unable to confirm the selected crop",
@@ -383,9 +460,14 @@ def predict_disease(image: Image.Image, crop: str):
             ),
         }
 
-    disease_info = get_disease_information(best_prediction["disease"])
+    # Get disease information
+    disease_info = get_disease_information(
+        best_prediction["disease"]
+    )
+
     uncertain = confidence < CONFIDENCE_THRESHOLD
 
+    # Final response
     return {
         "success": True,
         "prediction": best_prediction["disease"],

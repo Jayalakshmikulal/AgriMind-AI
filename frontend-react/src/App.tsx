@@ -1,4 +1,4 @@
-  
+   
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import "./App.css";
@@ -970,11 +970,6 @@ function App() {
   const [sprayingResult, setSprayingResult] = useState<any>(null);
   const [diseaseResult, setDiseaseResult] = useState<any>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [organFiles, setOrganFiles] = useState<Record<string, File | null>>({
-    leaf: null, stem: null, root: null, fruit: null,
-  });
-  const [organPreviews, setOrganPreviews] = useState<Record<string, string>>({});
-  const [wholePlantResult, setWholePlantResult] = useState<any>(null);
   const [selectedCrop, setSelectedCrop] = useState("Tomato");
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1191,66 +1186,27 @@ function App() {
     }
   }
 
-  function handleOrganImage(organ: string, event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] || null;
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Please upload a JPG, PNG or WEBP image.');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Each image must be smaller than 10 MB.');
-      return;
-    }
-    setOrganFiles((current) => ({ ...current, [organ]: file }));
-    setOrganPreviews((current) => ({ ...current, [organ]: URL.createObjectURL(file) }));
-    setWholePlantResult(null);
-    setDiseaseResult(null);
-    setSprayingResult(null);
-    setError('');
-  }
-
-  async function analyzeWholePlant() {
-    const selected = Object.values(organFiles).some(Boolean);
-    if (!selected) {
-      setError('Upload at least one plant-part image first.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setWholePlantResult(null);
-    setDiseaseResult(null);
-    setSprayingResult(null);
-    try {
-      const formData = new FormData();
-      formData.append('crop', selectedCrop);
-      (['leaf', 'stem', 'root', 'fruit'] as const).forEach((organ) => {
-        if (organFiles[organ]) formData.append(`${organ}_file`, organFiles[organ] as File);
-      });
-      const response = await fetch(`${API}/analyze-whole-plant`, { method: 'POST', body: formData });
-      if (!response.ok) {
-        const detail = await response.json().catch(() => null);
-        throw new Error(detail?.detail || 'Whole-plant analysis failed.');
-      }
-      const result = await response.json();
-      setWholePlantResult(result);
-      if (result.organs?.leaf?.prediction) setDiseaseResult(result.organs.leaf);
-      setBackendOnline(true);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Whole-plant analysis failed.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function handleImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Please upload a JPG, PNG or WEBP image.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Please choose an image smaller than 10 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (preview) URL.revokeObjectURL(preview);
     setSelectedImage(file);
-    setSprayingResult(null);
     setPreview(URL.createObjectURL(file));
     setDiseaseResult(null);
+    setSprayingResult(null);
     setError("");
   }
 
@@ -1604,56 +1560,70 @@ function App() {
                     ⓘ {tr("cropScope")}
                   </div>
 
-                  <div className="whole-plant-upload-grid">
-                    {([
-                      { id: 'leaf', title: '🍃 Leaf', detail: 'AI disease screening supported' },
-                      { id: 'stem', title: '🌿 Stem', detail: 'Image saved for plant report' },
-                      { id: 'root', title: '🌱 Root', detail: 'Image saved for plant report' },
-                      { id: 'fruit', title: '🍅 Fruit', detail: 'Image saved for plant report' },
-                    ] as const).map((organ) => (
-                      <label className="organ-upload-card" key={organ.id}>
-                        <strong>{organ.title}</strong>
-                        <small>{organ.detail}</small>
-                        {organPreviews[organ.id] ? (
-                          <img src={organPreviews[organ.id]} alt={`${organ.id} preview`} className="organ-image-preview" />
-                        ) : (
-                          <span className="organ-upload-placeholder">＋ Add {organ.id} photo</span>
-                        )}
-                        <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => handleOrganImage(organ.id, event)} />
-                        <small>{organFiles[organ.id]?.name || 'JPG · PNG · WEBP · MAX 10 MB'}</small>
-                      </label>
-                    ))}
-                  </div>
+                  <label
+                    className="image-upload-area"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "12px",
+                      minHeight: "230px",
+                      marginTop: "18px",
+                      padding: "22px",
+                      border: "1px dashed rgba(100,150,110,0.55)",
+                      borderRadius: "16px",
+                      background: "rgba(100,150,110,0.05)",
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    {preview ? (
+                      <img
+                        src={preview}
+                        alt="Selected crop leaf preview"
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          maxWidth: "320px",
+                          maxHeight: "230px",
+                          objectFit: "contain",
+                          borderRadius: "12px",
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: "42px" }}>🍃</span>
+                    )}
+                    <strong>{selectedImage ? selectedImage.name : tr("upload")}</strong>
+                    <span className="muted">JPG · PNG · WEBP · MAX 10 MB</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      hidden
+                      onChange={handleImage}
+                    />
+                  </label>
+
+                  {selectedImage && (
+                    <button
+                      type="button"
+                      className="text-action"
+                      onClick={() => {
+                        if (preview) URL.revokeObjectURL(preview);
+                        setSelectedImage(null);
+                        setPreview("");
+                        setDiseaseResult(null);
+                        setSprayingResult(null);
+                        setError("");
+                      }}
+                    >
+                      Remove selected image
+                    </button>
+                  )}
 
                   <div className="notice-box">
-                    Leaf images are analyzed by the current AI model. Stem, root and fruit images are included in the report but are not AI-diagnosed because this model has not been validated for those plant parts.
+                    The current pretrained model screens a single leaf image. It is not validated for stem, root, fruit or whole-plant diagnosis. Use the result as an initial screening aid only.
                   </div>
-
-                  <button
-                    className="primary-button full-button"
-                    onClick={analyzeWholePlant}
-                    disabled={loading}
-                  >
-                    {loading ? 'Preparing whole-plant report...' : 'Analyze whole plant'}
-                    <span>→</span>
-                  </button>
-
-                  {wholePlantResult && (
-                    <div className="whole-plant-report">
-                      <h3>Whole-plant screening report</h3>
-                      <p><strong>Crop:</strong> {wholePlantResult.crop}</p>
-                      {(['leaf', 'stem', 'root', 'fruit'] as const).map((organ) => {
-                        const item = wholePlantResult.organs?.[organ];
-                        return (
-                          <div className="whole-plant-report-row" key={organ}>
-                            <strong>{organ[0].toUpperCase() + organ.slice(1)}</strong>
-                            <span>{item?.status === 'ai_screened' ? `AI result: ${item.prediction} (${item.confidence}%)` : item?.status === 'uploaded_not_diagnosed' ? 'Image received. AI diagnosis not available for this plant part.' : 'Not uploaded'}</span>
-                          </div>
-                        );
-                      })}
-                      <p className="muted">This is a preliminary screening report, not a confirmed diagnosis.</p>
-                    </div>
-                  )}
 
                   <button
                     className="primary-button full-button"
